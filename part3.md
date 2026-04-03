@@ -18,7 +18,7 @@ Here's something that isn't obvious until you've quantized a few different archi
 
 This makes sense if you think about it. Attention is essentially a weighted voting system. Change the weights slightly and different tokens "win." At 8 bits, the votes shift a little. At 4 bits, some races flip entirely. At 2 bits, it's a different election.
 
-**Vision models** — CNNs, ViTs, image classifiers — tend to handle quantization much better. Why? Their features are more distributed. A convolutional filter that detects edges doesn't suddenly stop detecting edges because one weight shifted from `0.23` to `0.25`. The redundancy in how visual features are encoded acts like a buffer against quantization noise.
+**Vision models** — CNNs, ViTs, image classifiers — tend to handle quantization much better. Why? Their features are more distributed. A convolutional filter that detects edges doesn't suddenly stop detecting edges because one weight shifted from `0.23` to `0.25`. The same semantic cues are carried by many overlapping channels, filters, and spatial locations, so a small per-weight or per-activation error from quantization rarely decides the outcome on its own. Deeper layers pool and combine that evidence, and quantization noise on individual activations tends to average out rather than swing a single decisive vote the way a softmax-heavy attention block can in a transformer. It is less winner-take-all and more like many noisy measurements that still agree after rounding—which is why the redundancy in how visual features are encoded acts like a buffer against quantization noise.
 
 This doesn't mean you can quantize a vision model to 2 bits and expect the same performance. But the degradation curve is gentler. You get more compression before things fall apart.
 
@@ -44,7 +44,7 @@ Quantization is what makes these scenarios possible. Not "possible in theory." P
 
 A 7-billion parameter model quantized to 4 bits runs on a MacBook. Quantized to 2 bits with the right optimizations, it runs on a phone. Smaller models — 1B, 3B parameters — fit on microcontrollers when quantized aggressively enough.
 
-This is not just a scaling trick. It's a shift in where intelligence lives. Cloud-only AI is centralized by nature. Quantized models push intelligence to the edges — to devices, to users, to places where connectivity is a luxury.
+This is not just a scaling trick. It's a shift in where intelligence lives. Cloud-only AI is remote by definition—the model runs on someone else's hardware, so every inference depends on a round trip through the network, and data and processing stay concentrated there. Quantized models push intelligence to the edges — to devices, to users, to places where connectivity is a luxury.
 
 Think about what that means. Privacy improves because data never leaves the device. Latency drops to near zero. Cost per inference approaches zero once the hardware is paid for. And access expands to anyone with a device, not just anyone with a cloud subscription.
 
@@ -56,7 +56,7 @@ Quantization didn't invent edge AI. But it made it practical.
 
 Here's an idea that I think is underappreciated: you don't have to pick one precision level and live with it.
 
-In production systems, you can mix models at different bit-widths, routing different tasks to different precision levels. Think of it like a kitchen:
+In production systems, you can use **tiered quantization**—**multi-precision inference** with separate models or checkpoints at different bit-widths—and **dispatch** each request to the tier that fits the job. That is application-level decisioning (which model runs), not network routing in the packet-switching sense, and not the same thing as **adaptive quantization**, where bit-width might change inside a single graph at runtime. Think of it like a kitchen:
 
 The 2-bit model is the microwave. Fast, cheap, good enough for reheating leftovers. Use it for simple classification, intent detection, basic filtering. Tasks where "approximately right" is fine.
 
@@ -64,27 +64,27 @@ The 4-bit model is the stovetop. More nuanced. Use it for general conversation, 
 
 The full-precision model is the chef's kitchen. Expensive to run, but you bring it out for complex reasoning, multi-step logic, or anything where accuracy is critical and the cost is justified.
 
-A smart system routes between these based on the task. Simple query? Microwave. Standard request? Stovetop. Complex reasoning? Full kitchen. This isn't theoretical — it's how several large AI platforms already work, even if they don't call it "precision orchestration."
+A **tier-selection policy** chooses between these tiers based on the task—similar in spirit to a **model cascade**, where cheap paths handle easy cases and harder work escalates. Simple query? Microwave. Standard request? Stovetop. Complex reasoning? Full kitchen. In practice each appliance is its own export at that precision, not one model whose bit-width morphs layer by layer unless the stack is explicitly built that way. This isn't theoretical — it's how several large AI platforms already work, even if they don't call it "precision orchestration."
 
 The benefits are real:
 
 ```
 Model Tier     Bits    Latency    Cost/inference(estimate)    Best For
 ────────────────────────────────────────────────────────────────────────────
-Light          2-3     ~5ms       ~$0.0001                    Classification, routing
+Light          2-3     ~5ms       ~$0.0001                    Classification, triage
 Standard       4-8     ~50ms      ~$0.001                     General tasks
 Full           16      ~200ms     ~$0.01                      Complex reasoning
 ```
 
 By mixing tiers, you can serve 90% of traffic at minimal cost, reserve the expensive model for the 10% that needs it, and deliver faster responses for simple tasks. Your users get better latency on average, and your bill drops significantly.
 
-The challenge is building the routing layer — knowing which requests need which precision. But that's a solvable problem, and increasingly it's solved by, well, another small model.
+The challenge is building the tier-selection policy—knowing which requests need which precision. But that's a solvable problem, and increasingly it's solved by, well, another small model.
 
 ---
 
 ## Agents and the Portable Intelligence Stack
 
-If precision orchestration is about mixing models in the cloud, agents are about bundling models with logic and sending them out into the world.
+If precision orchestration — that is, tiered quantization in the cloud — is about mixing models at different bit-widths, agents are about bundling models with logic and sending them out into the world.
 
 An agent, in the way the industry is starting to use the term, is not just a model. It's a model plus tools plus memory plus decision logic, packaged together as a system that can act autonomously. Think of it as a software application where the core "brain" happens to be a neural network.
 
@@ -152,7 +152,7 @@ Part 1 was about what quantization *is*. A lossy transformation. A one-way door.
 
 Part 2 was about what quantization *does*. The mechanics. Δ carves up the value space. The floor erases the fractional part. The error is structured, not random. And modern methods exploit the structure of the data to protect what matters most.
 
-Part 3 was about what quantization *enables* — and what it exposes. Edge deployment, precision orchestration, portable agents. But also new attack surfaces, new security questions, and a research landscape that's still very much in motion.
+Part 3 was about what quantization *enables* — and what it exposes. Edge deployment, tiered quantization (precision orchestration), portable agents. But also new attack surfaces, new security questions, and a research landscape that's still very much in motion.
 
 The formula is simple:
 
